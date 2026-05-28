@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Basemap, Competitor, RealtyProject, TerritorialLevel } from '@/lib/types';
 import { colorForInmobiliaria } from '@/lib/colors';
 
@@ -17,25 +17,18 @@ const TerritorialMap = dynamic(() => import('./TerritorialMap'), {
   ),
 });
 
-export default function MapShell() {
-  const [realty, setRealty] = useState<RealtyProject[]>([]);
-  const [competitors, setCompetitors] = useState<Competitor[]>([]);
+type MapShellProps = {
+  realty: RealtyProject[];
+  competitors: Competitor[];
+};
+
+export default function MapShell({ realty, competitors }: MapShellProps) {
   const [level, setLevel] = useState<TerritorialLevel>('ninguno');
   const [basemap, setBasemap] = useState<Basemap>('claro');
   const [hiddenInmob, setHiddenInmob] = useState<Set<string>>(new Set());
   const [hiddenRealty, setHiddenRealty] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [focusId, setFocusId] = useState<string | null>(null);
-
-  useEffect(() => {
-    Promise.all([
-      fetch('/data/realty_proyectos.json').then((r) => r.json()),
-      fetch('/data/competidores_coords.json').then((r) => r.json()),
-    ]).then(([r, c]: [RealtyProject[], Competitor[]]) => {
-      setRealty(r);
-      setCompetitors(c);
-    });
-  }, []);
 
   const inmobiliarias = useMemo(() => {
     const map = new Map<string, number>();
