@@ -1,0 +1,72 @@
+[
+  {
+    "id": "asia-pacific",
+    "name": "Asia Pacific",
+    "lat": -12.768860472176959,
+    "lng": -76.59414187065705,
+    "loc": "Asia · Cañete · Lima",
+    "tagline": "Condominio playero frente al Boulevard de Asia",
+    "url": "https://realtygi.pe/proyecto/asia-pacific/",
+    "img": "https://realtygi.pe/wp-content/uploads/2026/05/Asia-PacificCard.webp"
+  },
+  {
+    "id": "bosques-calango",
+    "name": "Bosques de Calango",
+    "lat": -12.521052581582486,
+    "lng": -76.54689722406069,
+    "loc": "Calango · Cañete · Lima",
+    "tagline": "Casa de campo en valle interandino",
+    "url": "https://realtygi.pe/project/bosques-de-calango/",
+    "img": "https://realtygi.pe/wp-content/uploads/2026/05/Bosques-de-CalangoCard.webp"
+  },
+  {
+    "id": "paracas-beach",
+    "name": "Paracas Realty Beach",
+    "lat": -13.891908755971006,
+    "lng": -76.13888029999998,
+    "loc": "Paracas · Pisco · Ica",
+    "tagline": "Lotes desde 100 m² con playa artificial",
+    "url": "https://realtygi.pe/project/paracas-realty-beach/",
+    "img": "https://realtygi.pe/wp-content/uploads/2026/05/Paracas-Realty-BeachCard.webp"
+  },
+  {
+    "id": "pachacamac-luxury",
+    "name": "Pachacamac Luxury",
+    "lat": -12.208743286745753,
+    "lng": -76.8250360037218,
+    "loc": "Pachacámac · Lima",
+    "tagline": "Condominio premium en el valle de Lurín",
+    "url": "https://realtygi.pe/proyecto/pachacamac-luxury/",
+    "img": "https://realtygi.pe/wp-content/uploads/2026/05/Pachacamac-LuxuryCard.webp"
+  },
+  {
+    "id": "toscana-garden",
+    "name": "Toscana Garden",
+    "lat": -12.697194341717799,
+    "lng": -76.62651921531803,
+    "loc": "Mala · Cañete · Lima",
+    "tagline": "Inspiración mediterránea al sur de Lima",
+    "url": "https://realtygi.pe/project/toscana-garden/",
+    "img": "https://realtygi.pe/wp-content/uploads/2026/05/Toscana-GardenCard.webp"
+  },
+  {
+    "id": "buonavista",
+    "name": "Buonavista Condominio",
+    "lat": -11.615778189946568,
+    "lng": -77.24328075756273,
+    "loc": "Huaral · Lima",
+    "tagline": "Vivienda vacacional al norte de Lima",
+    "url": "https://realtygi.pe/project/buonavista-condominio/",
+    "img": "https://realtygi.pe/wp-content/uploads/2026/05/Buonavista-CondominioCard.webp"
+  },
+  {
+    "id": "altavista",
+    "name": "Altavista Condominio",
+    "lat": -12.634087263000621,
+    "lng": -76.63080386487897,
+    "loc": "Mala · Cañete · Lima",
+    "tagline": "Vista panorámica al valle de Mala",
+    "url": "https://realtygi.pe/project/altavista-condominio/",
+    "img": "https://realtygi.pe/wp-content/uploads/2026/05/Altavista-CondominioCard.webp"
+  }
+]
