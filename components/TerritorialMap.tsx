@@ -347,7 +347,9 @@ export default function TerritorialMap({
         )}
 
         {/* KML — GroundOverlay (imágenes georreferenciadas) */}
-        {Object.entries(overlaysByProject).flatMap(([projectId, overlays]) =>
+        {Object.entries(overlaysByProject)
+          .filter(([projectId]) => !hiddenRealty.has(projectId))
+          .flatMap(([projectId, overlays]) =>
           overlays.map((ov) => (
             <Source
               key={`img-${projectId}-${ov.id}`}
@@ -366,7 +368,9 @@ export default function TerritorialMap({
         )}
 
         {/* KML — Placemarks (puntos/líneas/polígonos) */}
-        {Object.entries(kmlByProject).map(([id, fc]) => (
+        {Object.entries(kmlByProject)
+          .filter(([id]) => !hiddenRealty.has(id))
+          .map(([id, fc]) => (
           <Source key={`kml-${id}`} id={`kml-${id}`} type="geojson" data={fc}>
             <Layer
               id={`kml-${id}-fill`}

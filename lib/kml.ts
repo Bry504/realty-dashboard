@@ -35,8 +35,15 @@ export async function loadKmlPayload(url: string): Promise<KmlPayload> {
   text = text.replace(/<visibility>\s*0\s*<\/visibility>/gi, '<visibility>1</visibility>');
 
   const doc = new DOMParser().parseFromString(text, 'text/xml');
-  const features = kmlToGeoJSON(doc) as unknown as FeatureCollection;
+  // Extraigo los GroundOverlays primero, porque togeojson los convertiría
+  // en polígonos de la LatLonBox (los cuadrantes naranjas indeseados).
   const overlays = extractGroundOverlays(doc);
+  // Quito los <GroundOverlay> del DOM antes de togeojson: así "features"
+  // contendrá solo Placemarks reales.
+  Array.from(doc.getElementsByTagName('GroundOverlay')).forEach((n) =>
+    n.parentNode?.removeChild(n),
+  );
+  const features = kmlToGeoJSON(doc) as unknown as FeatureCollection;
   return { features, overlays };
 }
 

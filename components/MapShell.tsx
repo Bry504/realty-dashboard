@@ -20,9 +20,14 @@ const TerritorialMap = dynamic(() => import('./TerritorialMap'), {
 type MapShellProps = {
   realty: RealtyProject[];
   competitors: Competitor[];
+  earthProjectUrl?: string | null;
 };
 
-export default function MapShell({ realty, competitors }: MapShellProps) {
+export default function MapShell({
+  realty,
+  competitors,
+  earthProjectUrl,
+}: MapShellProps) {
   const [level, setLevel] = useState<TerritorialLevel>('ninguno');
   const [basemap, setBasemap] = useState<Basemap>('claro');
   const [hiddenInmob, setHiddenInmob] = useState<Set<string>>(new Set());
@@ -114,11 +119,24 @@ export default function MapShell({ realty, competitors }: MapShellProps) {
           </span>
         </button>
 
-        {/* Vista 3D real → abre Google Earth Web en la posición actual */}
+        {/* Vista 3D real → abre Google Earth Web.
+            Si hay earthProjectUrl configurada en Supabase, abre ese Project
+            (carpeta Drive con todos los proyectos). Si no, manda la posición
+            actual del mapa. */}
         <button
-          onClick={() => setOpenEarthSignal((n) => n + 1)}
+          onClick={() => {
+            if (earthProjectUrl) {
+              window.open(earthProjectUrl, '_blank', 'noopener,noreferrer');
+            } else {
+              setOpenEarthSignal((n) => n + 1);
+            }
+          }}
           className="px-2.5 py-1.5 text-[11px] font-semibold rounded-md border border-line-2 text-ink-2 hover:bg-paper-2"
-          title="Abrir la vista actual en Google Earth (3D real)"
+          title={
+            earthProjectUrl
+              ? 'Abrir nuestro Google Earth Project'
+              : 'Abrir la vista actual en Google Earth (3D real)'
+          }
         >
           <span className="inline-flex items-center gap-1.5">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -199,17 +217,7 @@ export default function MapShell({ realty, competitors }: MapShellProps) {
                       aria-hidden
                     />
                     <div className="min-w-0 leading-tight">
-                      <div className="text-[12px] font-bold text-ink truncate">
-                        {r.name}
-                        {r.kml_url && (
-                          <span
-                            className="ml-1 align-middle text-[8px] font-bold text-white px-1 py-0.5 rounded bg-realty"
-                            title="Tiene mapa KML"
-                          >
-                            KML
-                          </span>
-                        )}
-                      </div>
+                      <div className="text-[12px] font-bold text-ink truncate">{r.name}</div>
                       <div className="text-[10px] text-ink-3 truncate">{r.loc}</div>
                     </div>
                     <button

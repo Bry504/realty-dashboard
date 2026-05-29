@@ -21,6 +21,16 @@ export async function fetchRealtyProyectos(): Promise<RealtyProject[]> {
   }));
 }
 
+export async function fetchSetting(key: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', key)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.value ?? null;
+}
+
 export async function fetchCompetidores(): Promise<Competitor[]> {
   const { data, error } = await supabase
     .from('v_competidores')
