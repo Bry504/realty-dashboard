@@ -24,7 +24,7 @@ import type {
   TerritorialLevel,
 } from '@/lib/types';
 import { colorForInmobiliaria } from '@/lib/colors';
-import { loadKmlAsGeoJSON } from '@/lib/kml';
+import { loadKmlPayload, type GroundOverlay } from '@/lib/kml';
 import { formatDistance, totalLengthMeters } from '@/lib/distance';
 
 // ---------- basemaps ----------
@@ -139,6 +139,7 @@ export default function TerritorialMap({
   const mapRef = useRef<MapRef | null>(null);
   const [geo, setGeo] = useState<FeatureCollection | null>(null);
   const [kmlByProject, setKmlByProject] = useState<Record<string, FeatureCollection>>({});
+  const [overlaysByProject, setOverlaysByProject] = useState<Record<string, GroundOverlay[]>>({});
   const [hover, setHover] = useState<HoverInfo>(null);
   const [measurePts, setMeasurePts] = useState<[number, number][]>([]);
 
@@ -164,23 +165,29 @@ export default function TerritorialMap({
     };
   }, [level]);
 
-  // KML overlays: convert each realty project's kml_url to GeoJSON once
+  // KML overlays: cargo cada proyecto con kml_url y separo placemarks + ground overlays
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const next: Record<string, FeatureCollection> = {};
+      const nextFC: Record<string, FeatureCollection> = {};
+      const nextOV: Record<string, GroundOverlay[]> = {};
       await Promise.all(
         realty
           .filter((r) => !!r.kml_url)
           .map(async (r) => {
             try {
-              next[r.id] = await loadKmlAsGeoJSON(r.kml_url as string);
+              const payload = await loadKmlPayload(r.kml_url as string);
+              if (payload.features.features.length > 0) nextFC[r.id] = payload.features;
+              if (payload.overlays.length > 0) nextOV[r.id] = payload.overlays;
             } catch {
               // ignore individual KML failures
             }
           }),
       );
-      if (!cancelled) setKmlByProject(next);
+      if (!cancelled) {
+        setKmlByProject(nextFC);
+        setOverlaysByProject(nextOV);
+      }
     })();
     return () => {
       cancelled = true;
@@ -208,13 +215,30 @@ export default function TerritorialMap({
     didFit.current = true;
   }, [realty, competitors]);
 
-  // flyTo focus
+  // flyTo focus: si el proyecto tiene overlays los enmarca; sino vuela al pin
   useEffect(() => {
     if (!focusId || !mapRef.current) return;
     const r = realty.find((x) => x.id === focusId);
     if (!r) return;
-    mapRef.current.flyTo({ center: [r.lng, r.lat], zoom: Math.max(mapRef.current.getZoom(), 13), duration: 900 });
-  }, [focusId, realty]);
+    const ovs = overlaysByProject[focusId];
+    if (ovs && ovs.length) {
+      const lngs = ovs.flatMap((o) => o.corners.map((c) => c[0]));
+      const lats = ovs.flatMap((o) => o.corners.map((c) => c[1]));
+      mapRef.current.fitBounds(
+        [
+          [Math.min(...lngs), Math.min(...lats)],
+          [Math.max(...lngs), Math.max(...lats)],
+        ],
+        { padding: 80, duration: 900, maxZoom: 17 },
+      );
+    } else {
+      mapRef.current.flyTo({
+        center: [r.lng, r.lat],
+        zoom: Math.max(mapRef.current.getZoom(), 13),
+        duration: 900,
+      });
+    }
+  }, [focusId, realty, overlaysByProject]);
 
   // Style — recomputed when basemap changes
   const mapStyle = useMemo(() => buildStyle(basemap), [basemap]);
@@ -322,7 +346,26 @@ export default function TerritorialMap({
           </Source>
         )}
 
-        {/* KML overlays */}
+        {/* KML — GroundOverlay (imágenes georreferenciadas) */}
+        {Object.entries(overlaysByProject).flatMap(([projectId, overlays]) =>
+          overlays.map((ov) => (
+            <Source
+              key={`img-${projectId}-${ov.id}`}
+              id={`img-${projectId}-${ov.id}`}
+              type="image"
+              url={ov.href}
+              coordinates={ov.corners}
+            >
+              <Layer
+                id={`img-${projectId}-${ov.id}-layer`}
+                type="raster"
+                paint={{ 'raster-opacity': 0.92, 'raster-fade-duration': 200 }}
+              />
+            </Source>
+          )),
+        )}
+
+        {/* KML — Placemarks (puntos/líneas/polígonos) */}
         {Object.entries(kmlByProject).map(([id, fc]) => (
           <Source key={`kml-${id}`} id={`kml-${id}`} type="geojson" data={fc}>
             <Layer
