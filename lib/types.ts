@@ -19,5 +19,16 @@ export type Competitor = {
   lng: number;
 };
 
+export type PoiCategory = 'tren' | 'salud' | 'finanzas' | 'educacion' | 'otro';
+
+export type Poi = {
+  id: string;
+  name: string;
+  category: PoiCategory;
+  kml_url: string;
+  color?: string | null;
+  default_visible: boolean;
+};
+
 export type TerritorialLevel = 'departamento' | 'provincia' | 'distrito' | 'ninguno';
 export type Basemap = 'claro' | 'osm' | 'satelite' | 'relieve';

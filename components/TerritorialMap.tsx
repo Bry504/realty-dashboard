@@ -26,6 +26,8 @@ import type {
 import { colorForInmobiliaria } from '@/lib/colors';
 import { loadKmlPayload, type GroundOverlay } from '@/lib/kml';
 import { formatDistance, totalLengthMeters } from '@/lib/distance';
+import { CATEGORY_COLOR } from '@/lib/poiColors';
+import type { Poi } from '@/lib/types';
 
 // ---------- basemaps ----------
 
@@ -116,6 +118,7 @@ type Props = {
   measureMode: boolean;
   /** Pulsos externos para abrir Google Earth en la posición actual del mapa */
   openEarthSignal?: number;
+  pois?: Poi[];
 };
 
 type HoverInfo =
@@ -135,11 +138,14 @@ export default function TerritorialMap({
   focusId,
   measureMode,
   openEarthSignal,
+  pois = [],
 }: Props) {
   const mapRef = useRef<MapRef | null>(null);
   const [geo, setGeo] = useState<FeatureCollection | null>(null);
   const [kmlByProject, setKmlByProject] = useState<Record<string, FeatureCollection>>({});
   const [overlaysByProject, setOverlaysByProject] = useState<Record<string, GroundOverlay[]>>({});
+  // Cache de cada POI KML cargado (id → FeatureCollection). Persiste entre toggles.
+  const [poiCache, setPoiCache] = useState<Record<string, FeatureCollection>>({});
   const [hover, setHover] = useState<HoverInfo>(null);
   const [measurePts, setMeasurePts] = useState<[number, number][]>([]);
 
@@ -214,6 +220,30 @@ export default function TerritorialMap({
     );
     didFit.current = true;
   }, [realty, competitors]);
+
+  // Cargo POIs activos a demanda (con cache)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const missing = pois.filter((p) => !poiCache[p.id]);
+      if (missing.length === 0) return;
+      const loaded: Record<string, FeatureCollection> = {};
+      await Promise.all(
+        missing.map(async (p) => {
+          try {
+            const payload = await loadKmlPayload(p.kml_url);
+            loaded[p.id] = payload.features;
+          } catch {
+            // silencio individual
+          }
+        }),
+      );
+      if (!cancelled && Object.keys(loaded).length > 0) {
+        setPoiCache((prev) => ({ ...prev, ...loaded }));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [pois, poiCache]);
 
   // flyTo focus: si el proyecto tiene overlays los enmarca; sino vuela al pin
   useEffect(() => {
@@ -398,6 +428,41 @@ export default function TerritorialMap({
             />
           </Source>
         ))}
+
+        {/* POI overlays (KMLs cacheados, solo los activos) */}
+        {pois.map((p) => {
+          const fc = poiCache[p.id];
+          if (!fc) return null;
+          const color = p.color ?? CATEGORY_COLOR[p.category] ?? '#5a4a40';
+          return (
+            <Source key={`poi-${p.id}`} id={`poi-${p.id}`} type="geojson" data={fc}>
+              <Layer
+                id={`poi-${p.id}-line`}
+                type="line"
+                filter={['==', '$type', 'LineString']}
+                paint={{ 'line-color': color, 'line-width': 3, 'line-opacity': 0.9 }}
+              />
+              <Layer
+                id={`poi-${p.id}-fill`}
+                type="fill"
+                filter={['==', '$type', 'Polygon']}
+                paint={{ 'fill-color': color, 'fill-opacity': 0.18 }}
+              />
+              <Layer
+                id={`poi-${p.id}-point`}
+                type="circle"
+                filter={['==', '$type', 'Point']}
+                paint={{
+                  'circle-radius': 5,
+                  'circle-color': color,
+                  'circle-stroke-color': '#fff',
+                  'circle-stroke-width': 2,
+                  'circle-opacity': 0.95,
+                }}
+              />
+            </Source>
+          );
+        })}
 
         {/* Measure layer */}
         {measurePts.length > 0 && (

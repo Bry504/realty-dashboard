@@ -2,8 +2,9 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
-import type { Basemap, Competitor, RealtyProject, TerritorialLevel } from '@/lib/types';
+import type { Basemap, Competitor, Poi, RealtyProject, TerritorialLevel } from '@/lib/types';
 import { colorForInmobiliaria } from '@/lib/colors';
+import { CATEGORY_COLOR } from '@/lib/poiColors';
 
 const TerritorialMap = dynamic(() => import('./TerritorialMap'), {
   ssr: false,
@@ -20,14 +21,27 @@ const TerritorialMap = dynamic(() => import('./TerritorialMap'), {
 type MapShellProps = {
   realty: RealtyProject[];
   competitors: Competitor[];
+  pois: Poi[];
   earthProjectUrl?: string | null;
 };
 
 export default function MapShell({
   realty,
   competitors,
+  pois,
   earthProjectUrl,
 }: MapShellProps) {
+  // POIs activos: arrancan con los marcados default_visible
+  const [activePoiIds, setActivePoiIds] = useState<Set<string>>(
+    () => new Set(pois.filter((p) => p.default_visible).map((p) => p.id)),
+  );
+  const togglePoi = (id: string) =>
+    setActivePoiIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  const activePois = pois.filter((p) => activePoiIds.has(p.id));
   const [level, setLevel] = useState<TerritorialLevel>('ninguno');
   const [basemap, setBasemap] = useState<Basemap>('claro');
   const [hiddenInmob, setHiddenInmob] = useState<Set<string>>(new Set());
@@ -264,6 +278,41 @@ export default function MapShell({
             </p>
           </section>
 
+          {/* POIs */}
+          <section className="px-4 py-4 border-b border-line">
+            <h3 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-3 mb-2">
+              Puntos de interés (POIS)
+            </h3>
+            {pois.length === 0 ? (
+              <p className="text-[10px] text-ink-3 leading-snug">
+                Aún no hay capas configuradas.
+              </p>
+            ) : (
+              <div className="space-y-0.5">
+                {pois.map((p) => {
+                  const active = activePoiIds.has(p.id);
+                  const dot = p.color ?? CATEGORY_COLOR[p.category] ?? '#5a4a40';
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => togglePoi(p.id)}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-[11px] hover:bg-paper-2 ${
+                        active ? '' : 'opacity-50'
+                      }`}
+                    >
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/10"
+                        style={{ background: dot }}
+                      />
+                      <span className="flex-1 truncate font-semibold text-ink-2">{p.name}</span>
+                      <EyeIcon off={!active} small />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
           {/* Competition */}
           <section className="px-4 py-4 border-b border-line last:border-b-0">
             <div className="flex items-center justify-between mb-2">
@@ -342,6 +391,7 @@ export default function MapShell({
             focusId={focusId}
             measureMode={measureMode}
             openEarthSignal={openEarthSignal}
+            pois={activePois}
           />
         </div>
       </div>

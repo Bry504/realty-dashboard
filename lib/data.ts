@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Competitor, RealtyProject } from './types';
+import type { Competitor, Poi, RealtyProject } from './types';
 
 export async function fetchRealtyProyectos(): Promise<RealtyProject[]> {
   const { data, error } = await supabase
@@ -18,6 +18,23 @@ export async function fetchRealtyProyectos(): Promise<RealtyProject[]> {
     url: r.url ?? '',
     img: r.img ?? '',
     kml_url: r.kml_url ?? null,
+  }));
+}
+
+export async function fetchPois(): Promise<Poi[]> {
+  const { data, error } = await supabase
+    .from('pois')
+    .select('id,name,category,kml_url,color,default_visible,orden')
+    .order('orden', { ascending: true })
+    .order('name', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    category: p.category,
+    kml_url: p.kml_url,
+    color: p.color,
+    default_visible: p.default_visible,
   }));
 }
 
