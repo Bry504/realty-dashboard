@@ -29,6 +29,9 @@ import { formatDistance, totalLengthMeters } from '@/lib/distance';
 
 // ---------- basemaps ----------
 
+// maxzoom = el zoom hasta el que el proveedor TIENE tiles reales en Perú.
+// Más allá MapLibre hace overzoom (escala el último tile bueno) en vez de
+// pedir tiles que el proveedor devuelve como "Map data not yet available".
 const BASEMAPS: Record<
   Basemap,
   { tiles: string[]; attribution: string; maxzoom?: number; subdomains?: string[] }
@@ -57,7 +60,8 @@ const BASEMAPS: Record<
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     ],
     attribution: 'Tiles © Esri — World Imagery',
-    maxzoom: 19,
+    // Esri en zonas rurales del Perú no tiene zoom > 17 confiable.
+    maxzoom: 17,
   },
   relieve: {
     tiles: [
@@ -66,7 +70,7 @@ const BASEMAPS: Record<
       'https://c.tile.opentopomap.org/{z}/{x}/{y}.png',
     ],
     attribution: '© OpenTopoMap · © OpenStreetMap',
-    maxzoom: 17,
+    maxzoom: 16,
   },
 };
 
@@ -289,7 +293,7 @@ export default function TerritorialMap({
         // Limito el zoom máximo a 19 — más allá los proveedores raster devuelven
         // tiles vacíos con texto "no data". Si el usuario quiere ver más detalle
         // tiene el botón "Abrir en Google Earth" en el topbar.
-        maxZoom={19}
+        maxZoom={20}
         minZoom={4}
         dragRotate={false}
       >
