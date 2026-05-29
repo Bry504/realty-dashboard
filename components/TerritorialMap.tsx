@@ -497,22 +497,22 @@ export default function TerritorialMap({
                   filter={['==', '$type', 'Point']}
                   layout={{
                     'icon-image': 'icon-tren',
-                    'icon-size': 0.55,
+                    'icon-size': 1.6,
                     'icon-allow-overlap': true,
                     'icon-ignore-placement': true,
                     'text-field': ['coalesce', ['get', 'name'], ''],
                     'text-font': ['Open Sans Regular'],
-                    'text-size': 11,
+                    'text-size': 16,
                     'text-anchor': 'top',
-                    'text-offset': [0, 1.2],
+                    'text-offset': [0, 1.6],
                     'text-optional': true,
                     'text-max-width': 8,
                   }}
                   paint={{
                     'text-color': '#1d1410',
                     'text-halo-color': '#ffffff',
-                    'text-halo-width': 1.6,
-                    'text-halo-blur': 0.2,
+                    'text-halo-width': 2,
+                    'text-halo-blur': 0.3,
                   }}
                 />
               ) : (
