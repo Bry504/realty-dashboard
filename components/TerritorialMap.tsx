@@ -97,6 +97,36 @@ function buildStyle(basemap: Basemap): StyleSpecification {
   };
 }
 
+/**
+ * Registra (idempotentemente) un ícono SVG de tren en el sprite del mapa.
+ * Hay que volver a llamarlo cada vez que se carga un nuevo estilo (al cambiar
+ * el basemap) porque MapLibre vacía las imágenes registradas.
+ */
+function ensureTrainIcon(map: maplibregl.Map): void {
+  const ID = 'icon-tren';
+  if (map.hasImage(ID)) return;
+  const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+  <circle cx="20" cy="20" r="17" fill="#1976d2" stroke="#ffffff" stroke-width="2.5"/>
+  <rect x="12" y="11.5" width="16" height="13" rx="2.5" fill="#ffffff"/>
+  <rect x="13.5" y="13.5" width="5" height="3" fill="#1976d2"/>
+  <rect x="20.5" y="13.5" width="5" height="3" fill="#1976d2"/>
+  <rect x="13.5" y="18" width="12" height="3" fill="#1976d2"/>
+  <circle cx="15.5" cy="27" r="2" fill="#ffffff" stroke="#1976d2" stroke-width="1.4"/>
+  <circle cx="24.5" cy="27" r="2" fill="#ffffff" stroke="#1976d2" stroke-width="1.4"/>
+  <rect x="11" y="25.5" width="2" height="2" fill="#1976d2"/>
+  <rect x="27" y="25.5" width="2" height="2" fill="#1976d2"/>
+</svg>`;
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image(40, 40);
+  img.onload = () => {
+    if (!map.hasImage(ID)) map.addImage(ID, img, { pixelRatio: 2 });
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+}
+
 /** Abre Google Earth Web centrado en la cámara actual del mapa. */
 function openInGoogleEarth(lng: number, lat: number, zoom: number) {
   // Conversión aprox: distancia de cámara (range) en metros desde el zoom de Mercator
@@ -273,6 +303,14 @@ export default function TerritorialMap({
   // Style — recomputed when basemap changes
   const mapStyle = useMemo(() => buildStyle(basemap), [basemap]);
 
+  // Re-registro el ícono del tren cada vez que MapLibre carga un nuevo estilo
+  // (al cambiar basemap, el sprite de imágenes se vacía).
+  useEffect(() => {
+    const m = mapRef.current?.getMap();
+    if (!m) return;
+    ensureTrainIcon(m);
+  }, [basemap]);
+
   // Cuando el shell pide "Abrir en Google Earth", capturamos la posición actual de la cámara
   useEffect(() => {
     if (!openEarthSignal || !mapRef.current) return;
@@ -342,6 +380,10 @@ export default function TerritorialMap({
         mapLib={maplibregl as never}
         attributionControl={false}
         onClick={onMapClick}
+        onLoad={() => {
+          const m = mapRef.current?.getMap();
+          if (m) ensureTrainIcon(m);
+        }}
         cursor={cursor}
         style={{ width: '100%', height: '100%' }}
         // Limito el zoom máximo a 19 — más allá los proveedores raster devuelven
@@ -448,18 +490,45 @@ export default function TerritorialMap({
                 filter={['==', '$type', 'Polygon']}
                 paint={{ 'fill-color': color, 'fill-opacity': 0.18 }}
               />
-              <Layer
-                id={`poi-${p.id}-point`}
-                type="circle"
-                filter={['==', '$type', 'Point']}
-                paint={{
-                  'circle-radius': 5,
-                  'circle-color': color,
-                  'circle-stroke-color': '#fff',
-                  'circle-stroke-width': 2,
-                  'circle-opacity': 0.95,
-                }}
-              />
+              {p.category === 'tren' ? (
+                <Layer
+                  id={`poi-${p.id}-symbol`}
+                  type="symbol"
+                  filter={['==', '$type', 'Point']}
+                  layout={{
+                    'icon-image': 'icon-tren',
+                    'icon-size': 0.55,
+                    'icon-allow-overlap': true,
+                    'icon-ignore-placement': true,
+                    'text-field': ['coalesce', ['get', 'name'], ''],
+                    'text-font': ['Open Sans Regular'],
+                    'text-size': 11,
+                    'text-anchor': 'top',
+                    'text-offset': [0, 1.2],
+                    'text-optional': true,
+                    'text-max-width': 8,
+                  }}
+                  paint={{
+                    'text-color': '#1d1410',
+                    'text-halo-color': '#ffffff',
+                    'text-halo-width': 1.6,
+                    'text-halo-blur': 0.2,
+                  }}
+                />
+              ) : (
+                <Layer
+                  id={`poi-${p.id}-point`}
+                  type="circle"
+                  filter={['==', '$type', 'Point']}
+                  paint={{
+                    'circle-radius': 5,
+                    'circle-color': color,
+                    'circle-stroke-color': '#fff',
+                    'circle-stroke-width': 2,
+                    'circle-opacity': 0.95,
+                  }}
+                />
+              )}
             </Source>
           );
         })}
