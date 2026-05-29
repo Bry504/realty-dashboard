@@ -7,6 +7,7 @@ export type RealtyProject = {
   tagline: string;
   url: string;
   img: string;
+  kml_url?: string | null;
 };
 
 export type Competitor = {
@@ -19,4 +20,4 @@ export type Competitor = {
 };
 
 export type TerritorialLevel = 'departamento' | 'provincia' | 'distrito' | 'ninguno';
-export type Basemap = 'claro' | 'osm' | 'satelite';
+export type Basemap = 'claro' | 'osm' | 'satelite' | 'relieve';

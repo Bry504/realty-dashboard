@@ -4,7 +4,7 @@ import type { Competitor, RealtyProject } from './types';
 export async function fetchRealtyProyectos(): Promise<RealtyProject[]> {
   const { data, error } = await supabase
     .from('realty_proyectos')
-    .select('id,name,lat,lng,loc,tagline,url,img,orden,visible')
+    .select('id,name,lat,lng,loc,tagline,url,img,orden,visible,kml_url')
     .eq('visible', true)
     .order('orden', { ascending: true });
   if (error) throw error;
@@ -17,6 +17,7 @@ export async function fetchRealtyProyectos(): Promise<RealtyProject[]> {
     tagline: r.tagline ?? '',
     url: r.url ?? '',
     img: r.img ?? '',
+    kml_url: r.kml_url ?? null,
   }));
 }
 

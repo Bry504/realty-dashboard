@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Basemap, Competitor, RealtyProject, TerritorialLevel } from '@/lib/types';
 import { colorForInmobiliaria } from '@/lib/colors';
 
@@ -29,6 +29,13 @@ export default function MapShell({ realty, competitors }: MapShellProps) {
   const [hiddenRealty, setHiddenRealty] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [threeD, setThreeD] = useState(false);
+  const [measureMode, setMeasureMode] = useState(false);
+
+  // 3D solo aplica en satélite — si cambias basemap, lo apagamos.
+  useEffect(() => {
+    if (basemap !== 'satelite' && threeD) setThreeD(false);
+  }, [basemap, threeD]);
 
   const inmobiliarias = useMemo(() => {
     const map = new Map<string, number>();
@@ -92,8 +99,43 @@ export default function MapShell({ realty, competitors }: MapShellProps) {
 
         <div className="flex-1" />
 
+        {/* Regla */}
+        <button
+          onClick={() => setMeasureMode((v) => !v)}
+          className={`px-2.5 py-1.5 text-[11px] font-semibold rounded-md border ${
+            measureMode
+              ? 'bg-ink text-white border-ink'
+              : 'border-line-2 text-ink-2 hover:bg-paper-2'
+          }`}
+          title="Medir distancia"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 17 17 3l4 4L7 21 3 17Z" />
+              <path d="m7 13 2 2M10 10l2 2M13 7l2 2" />
+            </svg>
+            Regla
+          </span>
+        </button>
+
+        {/* Toggle 3D solo cuando satélite está activo */}
+        {basemap === 'satelite' && (
+          <button
+            onClick={() => setThreeD((v) => !v)}
+            className={`px-2.5 py-1.5 text-[11px] font-semibold rounded-md border ${
+              threeD
+                ? 'bg-realty text-white border-realty'
+                : 'border-line-2 text-ink-2 hover:bg-paper-2'
+            }`}
+            title="Vista 3D con relieve"
+          >
+            {threeD ? '3D activado' : '3D'}
+          </button>
+        )}
+
+        {/* Basemap selector */}
         <div className="flex border border-line-2 rounded-md overflow-hidden">
-          {(['claro', 'osm', 'satelite'] as Basemap[]).map((b) => (
+          {(['claro', 'osm', 'satelite', 'relieve'] as Basemap[]).map((b) => (
             <button
               key={b}
               onClick={() => setBasemap(b)}
@@ -101,7 +143,13 @@ export default function MapShell({ realty, competitors }: MapShellProps) {
                 basemap === b ? 'bg-ink text-white' : 'text-ink-2 hover:bg-paper-2'
               }`}
             >
-              {b === 'claro' ? 'Claro' : b === 'osm' ? 'OSM' : 'Satélite'}
+              {b === 'claro'
+                ? 'Claro'
+                : b === 'osm'
+                ? 'OSM'
+                : b === 'satelite'
+                ? 'Satélite'
+                : 'Relieve'}
             </button>
           ))}
         </div>
@@ -278,6 +326,8 @@ export default function MapShell({ realty, competitors }: MapShellProps) {
             hiddenInmobiliarias={hiddenInmob}
             hiddenRealty={hiddenRealty}
             focusId={focusId}
+            threeD={threeD}
+            measureMode={measureMode}
           />
         </div>
       </div>
