@@ -29,13 +29,9 @@ export default function MapShell({ realty, competitors }: MapShellProps) {
   const [hiddenRealty, setHiddenRealty] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [focusId, setFocusId] = useState<string | null>(null);
-  const [threeD, setThreeD] = useState(false);
   const [measureMode, setMeasureMode] = useState(false);
-
-  // 3D solo aplica en satélite — si cambias basemap, lo apagamos.
-  useEffect(() => {
-    if (basemap !== 'satelite' && threeD) setThreeD(false);
-  }, [basemap, threeD]);
+  // Contador-señal: cada incremento dispara una nueva ventana de Google Earth
+  const [openEarthSignal, setOpenEarthSignal] = useState(0);
 
   const inmobiliarias = useMemo(() => {
     const map = new Map<string, number>();
@@ -118,20 +114,20 @@ export default function MapShell({ realty, competitors }: MapShellProps) {
           </span>
         </button>
 
-        {/* Toggle 3D solo cuando satélite está activo */}
-        {basemap === 'satelite' && (
-          <button
-            onClick={() => setThreeD((v) => !v)}
-            className={`px-2.5 py-1.5 text-[11px] font-semibold rounded-md border ${
-              threeD
-                ? 'bg-realty text-white border-realty'
-                : 'border-line-2 text-ink-2 hover:bg-paper-2'
-            }`}
-            title="Vista 3D con relieve"
-          >
-            {threeD ? '3D activado' : '3D'}
-          </button>
-        )}
+        {/* Vista 3D real → abre Google Earth Web en la posición actual */}
+        <button
+          onClick={() => setOpenEarthSignal((n) => n + 1)}
+          className="px-2.5 py-1.5 text-[11px] font-semibold rounded-md border border-line-2 text-ink-2 hover:bg-paper-2"
+          title="Abrir la vista actual en Google Earth (3D real)"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3 12h18M12 3a14.5 14.5 0 0 1 0 18M12 3a14.5 14.5 0 0 0 0 18" />
+            </svg>
+            3D en Earth
+          </span>
+        </button>
 
         {/* Basemap selector */}
         <div className="flex border border-line-2 rounded-md overflow-hidden">
@@ -203,7 +199,17 @@ export default function MapShell({ realty, competitors }: MapShellProps) {
                       aria-hidden
                     />
                     <div className="min-w-0 leading-tight">
-                      <div className="text-[12px] font-bold text-ink truncate">{r.name}</div>
+                      <div className="text-[12px] font-bold text-ink truncate">
+                        {r.name}
+                        {r.kml_url && (
+                          <span
+                            className="ml-1 align-middle text-[8px] font-bold text-white px-1 py-0.5 rounded bg-realty"
+                            title="Tiene mapa KML"
+                          >
+                            KML
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[10px] text-ink-3 truncate">{r.loc}</div>
                     </div>
                     <button
@@ -326,8 +332,8 @@ export default function MapShell({ realty, competitors }: MapShellProps) {
             hiddenInmobiliarias={hiddenInmob}
             hiddenRealty={hiddenRealty}
             focusId={focusId}
-            threeD={threeD}
             measureMode={measureMode}
+            openEarthSignal={openEarthSignal}
           />
         </div>
       </div>

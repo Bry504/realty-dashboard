@@ -70,14 +70,9 @@ const BASEMAPS: Record<
   },
 };
 
-// AWS Terrarium DEM, free.
-const TERRAIN_TILES = [
-  'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png',
-];
-
-function buildStyle(basemap: Basemap, terrainOn: boolean): StyleSpecification {
+function buildStyle(basemap: Basemap): StyleSpecification {
   const b = BASEMAPS[basemap];
-  const style: StyleSpecification = {
+  return {
     version: 8,
     glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
     sources: {
@@ -86,22 +81,22 @@ function buildStyle(basemap: Basemap, terrainOn: boolean): StyleSpecification {
         tiles: b.tiles,
         tileSize: 256,
         attribution: b.attribution,
+        // El source maxzoom define hasta dónde el provider tiene tiles;
+        // MapLibre hace "overzoom" más allá usando el último tile escalado,
+        // así no aparecen los placeholders de "No data".
         maxzoom: b.maxzoom ?? 19,
       },
     },
     layers: [{ id: 'basemap', type: 'raster', source: 'basemap' }],
   };
-  if (terrainOn) {
-    style.sources.terrain = {
-      type: 'raster-dem',
-      tiles: TERRAIN_TILES,
-      tileSize: 256,
-      encoding: 'terrarium',
-      maxzoom: 14,
-    };
-    style.terrain = { source: 'terrain', exaggeration: 1.4 };
-  }
-  return style;
+}
+
+/** Abre Google Earth Web centrado en la cámara actual del mapa. */
+function openInGoogleEarth(lng: number, lat: number, zoom: number) {
+  // Conversión aprox: distancia de cámara (range) en metros desde el zoom de Mercator
+  const range = Math.max(50, 40_000_000 / Math.pow(2, zoom));
+  const url = `https://earth.google.com/web/@${lat},${lng},0a,${range.toFixed(0)}d,35y,0h,60t,0r`;
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 // ---------- props ----------
@@ -114,8 +109,9 @@ type Props = {
   hiddenInmobiliarias: Set<string>;
   hiddenRealty: Set<string>;
   focusId?: string | null;
-  threeD: boolean;
   measureMode: boolean;
+  /** Pulsos externos para abrir Google Earth en la posición actual del mapa */
+  openEarthSignal?: number;
 };
 
 type HoverInfo =
@@ -133,8 +129,8 @@ export default function TerritorialMap({
   hiddenInmobiliarias,
   hiddenRealty,
   focusId,
-  threeD,
   measureMode,
+  openEarthSignal,
 }: Props) {
   const mapRef = useRef<MapRef | null>(null);
   const [geo, setGeo] = useState<FeatureCollection | null>(null);
@@ -216,11 +212,16 @@ export default function TerritorialMap({
     mapRef.current.flyTo({ center: [r.lng, r.lat], zoom: Math.max(mapRef.current.getZoom(), 13), duration: 900 });
   }, [focusId, realty]);
 
-  // Style — recomputed when basemap or 3D changes
-  const mapStyle = useMemo(
-    () => buildStyle(basemap, threeD && basemap === 'satelite'),
-    [basemap, threeD],
-  );
+  // Style — recomputed when basemap changes
+  const mapStyle = useMemo(() => buildStyle(basemap), [basemap]);
+
+  // Cuando el shell pide "Abrir en Google Earth", capturamos la posición actual de la cámara
+  useEffect(() => {
+    if (!openEarthSignal || !mapRef.current) return;
+    const m = mapRef.current.getMap();
+    const c = m.getCenter();
+    openInGoogleEarth(c.lng, c.lat, m.getZoom());
+  }, [openEarthSignal]);
 
   // ---------- measurement ----------
 
@@ -269,17 +270,6 @@ export default function TerritorialMap({
   // Cursor for measure mode
   const cursor = measureMode ? 'crosshair' : 'grab';
 
-  // Set pitch when 3D toggled on
-  useEffect(() => {
-    if (!mapRef.current) return;
-    const m = mapRef.current.getMap();
-    if (threeD && basemap === 'satelite') {
-      m.easeTo({ pitch: 60, duration: 500 });
-    } else {
-      m.easeTo({ pitch: 0, bearing: 0, duration: 400 });
-    }
-  }, [threeD, basemap]);
-
   const visibleRealty = realty.filter((r) => !hiddenRealty.has(r.id));
   const visibleCompetitors = competitors.filter(
     (c) => !hiddenInmobiliarias.has(c.inmobiliaria),
@@ -296,8 +286,12 @@ export default function TerritorialMap({
         onClick={onMapClick}
         cursor={cursor}
         style={{ width: '100%', height: '100%' }}
-        maxPitch={75}
-        dragRotate
+        // Limito el zoom máximo a 19 — más allá los proveedores raster devuelven
+        // tiles vacíos con texto "no data". Si el usuario quiere ver más detalle
+        // tiene el botón "Abrir en Google Earth" en el topbar.
+        maxZoom={19}
+        minZoom={4}
+        dragRotate={false}
       >
         <NavigationControl position="bottom-right" visualizePitch />
         <ScaleControl position="bottom-left" unit="metric" />
