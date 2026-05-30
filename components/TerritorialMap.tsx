@@ -27,7 +27,7 @@ import { colorForInmobiliaria } from '@/lib/colors';
 import { loadKmlPayload, type GroundOverlay } from '@/lib/kml';
 import { formatDistance, totalLengthMeters } from '@/lib/distance';
 import { CATEGORY_COLOR } from '@/lib/poiColors';
-import type { Poi } from '@/lib/types';
+import type { Poi, UserPoint } from '@/lib/types';
 
 // ---------- basemaps ----------
 
@@ -149,11 +149,18 @@ type Props = {
   /** Pulsos externos para abrir Google Earth en la posición actual del mapa */
   openEarthSignal?: number;
   pois?: Poi[];
+  /** 0..1 — opacidad del relleno de cada polígono territorial */
+  territorialFillOpacity?: number;
+  userPoints?: UserPoint[];
+  /** Activo cuando el usuario quiere crear un nuevo punto al hacer click */
+  addPointMode?: boolean;
+  onMapClickToCreate?: (lngLat: { lng: number; lat: number }) => void;
 };
 
 type HoverInfo =
   | { kind: 'realty'; project: RealtyProject }
   | { kind: 'comp'; comp: Competitor }
+  | { kind: 'user'; point: UserPoint }
   | null;
 
 // ---------- component ----------
@@ -169,6 +176,10 @@ export default function TerritorialMap({
   measureMode,
   openEarthSignal,
   pois = [],
+  territorialFillOpacity = 0.06,
+  userPoints = [],
+  addPointMode = false,
+  onMapClickToCreate,
 }: Props) {
   const mapRef = useRef<MapRef | null>(null);
   const [geo, setGeo] = useState<FeatureCollection | null>(null);
@@ -349,11 +360,15 @@ export default function TerritorialMap({
 
   const onMapClick = useCallback(
     (e: MapMouseEvent) => {
-      if (!measureMode) return;
       const { lng, lat } = e.lngLat;
+      if (addPointMode && onMapClickToCreate) {
+        onMapClickToCreate({ lng, lat });
+        return;
+      }
+      if (!measureMode) return;
       setMeasurePts((prev) => [...prev, [lng, lat]]);
     },
-    [measureMode],
+    [measureMode, addPointMode, onMapClickToCreate],
   );
 
   // Clear measure when toggled off
@@ -364,7 +379,7 @@ export default function TerritorialMap({
   const measureTotal = useMemo(() => totalLengthMeters(measurePts), [measurePts]);
 
   // Cursor for measure mode
-  const cursor = measureMode ? 'crosshair' : 'grab';
+  const cursor = addPointMode ? 'crosshair' : measureMode ? 'crosshair' : 'grab';
 
   const visibleRealty = realty.filter((r) => !hiddenRealty.has(r.id));
   const visibleCompetitors = competitors.filter(
@@ -397,22 +412,48 @@ export default function TerritorialMap({
         <ScaleControl position="bottom-left" unit="metric" />
         <AttributionControl position="bottom-right" compact />
 
-        {/* Territorial borders */}
+        {/* Territorial borders + labels */}
         {geo && (
           <Source id="territorial" type="geojson" data={geo}>
             <Layer
               id="territorial-fill"
               type="fill"
-              paint={{ 'fill-color': '#1d1410', 'fill-opacity': 0.04 }}
+              paint={{ 'fill-color': '#e87722', 'fill-opacity': territorialFillOpacity }}
             />
             <Layer
               id="territorial-line"
               type="line"
               paint={{
-                'line-color': '#5a4a40',
+                'line-color': '#b8581a',
                 'line-width':
-                  level === 'distrito' ? 0.5 : level === 'provincia' ? 0.8 : 1.2,
-                'line-opacity': 0.7,
+                  level === 'distrito' ? 1.4 : level === 'provincia' ? 1.9 : 2.6,
+                'line-opacity': 0.95,
+              }}
+            />
+            <Layer
+              id="territorial-label"
+              type="symbol"
+              layout={{
+                'text-field': [
+                  'coalesce',
+                  ['get', 'NOMBDEP'],
+                  ['get', 'NOMBPROV'],
+                  ['get', 'NOMBDIST'],
+                  ['get', 'name'],
+                  '',
+                ],
+                'text-font': ['Open Sans Regular'],
+                'text-size': level === 'distrito' ? 11 : level === 'provincia' ? 13 : 15,
+                'text-letter-spacing': 0.04,
+                'text-transform': 'uppercase',
+                'text-allow-overlap': false,
+                'symbol-placement': 'point',
+              }}
+              paint={{
+                'text-color': '#1d1410',
+                'text-halo-color': '#ffffff',
+                'text-halo-width': 2,
+                'text-halo-blur': 0.4,
               }}
             />
           </Source>
@@ -613,7 +654,49 @@ export default function TerritorialMap({
           </Marker>
         ))}
 
+        {/* User-created points */}
+        {userPoints.map((up) => (
+          <Marker key={`up-${up.id}`} longitude={up.lng} latitude={up.lat} anchor="bottom">
+            <div
+              className="comp-pin-wrap"
+              onMouseEnter={() => setHover({ kind: 'user', point: up })}
+              onMouseLeave={() => setHover(null)}
+            >
+              <div
+                className="comp-pin"
+                style={{ background: up.color, width: 22, height: 22, fontSize: 11 }}
+              >
+                <span>★</span>
+              </div>
+            </div>
+          </Marker>
+        ))}
+
         {/* Hover popup */}
+        {hover?.kind === 'user' && (
+          <Popup
+            longitude={hover.point.lng}
+            latitude={hover.point.lat}
+            anchor="bottom"
+            offset={28}
+            closeButton={false}
+            closeOnClick={false}
+            className="rg-popup"
+          >
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: hover.point.color }}>
+              Punto guardado
+            </div>
+            <div style={{ fontWeight: 800, fontSize: 13, color: '#1d1410', marginTop: 2 }}>
+              {hover.point.name}
+            </div>
+            {hover.point.description && (
+              <div style={{ fontSize: 11, color: '#5a4a40', marginTop: 4, maxWidth: 220 }}>
+                {hover.point.description}
+              </div>
+            )}
+          </Popup>
+        )}
+
         {hover?.kind === 'realty' && (
           <Popup
             longitude={hover.project.lng}

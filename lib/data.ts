@@ -1,10 +1,10 @@
 import { supabase } from './supabase';
-import type { Competitor, Poi, RealtyProject } from './types';
+import type { Competitor, Poi, RealtyProject, UserPoint } from './types';
 
 export async function fetchRealtyProyectos(): Promise<RealtyProject[]> {
   const { data, error } = await supabase
     .from('realty_proyectos')
-    .select('id,name,lat,lng,loc,tagline,url,img,orden,visible,kml_url')
+    .select('id,name,lat,lng,loc,tagline,url,img,logo_url,orden,visible,kml_url')
     .eq('visible', true)
     .order('orden', { ascending: true });
   if (error) throw error;
@@ -17,8 +17,45 @@ export async function fetchRealtyProyectos(): Promise<RealtyProject[]> {
     tagline: r.tagline ?? '',
     url: r.url ?? '',
     img: r.img ?? '',
+    logo_url: r.logo_url ?? null,
     kml_url: r.kml_url ?? null,
   }));
+}
+
+export async function fetchUserPoints(): Promise<UserPoint[]> {
+  const { data, error } = await supabase
+    .from('user_points')
+    .select('id,name,description,lat,lng,color,created_at')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as UserPoint[];
+}
+
+export async function createUserPoint(input: {
+  name: string;
+  description?: string | null;
+  lat: number;
+  lng: number;
+  color?: string;
+}): Promise<UserPoint> {
+  const { data, error } = await supabase
+    .from('user_points')
+    .insert({
+      name: input.name,
+      description: input.description ?? null,
+      lat: input.lat,
+      lng: input.lng,
+      color: input.color ?? '#7c3aed',
+    })
+    .select('id,name,description,lat,lng,color,created_at')
+    .single();
+  if (error) throw error;
+  return data as UserPoint;
+}
+
+export async function deleteUserPoint(id: number): Promise<void> {
+  const { error } = await supabase.from('user_points').delete().eq('id', id);
+  if (error) throw error;
 }
 
 export async function fetchPois(): Promise<Poi[]> {

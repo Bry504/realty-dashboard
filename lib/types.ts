@@ -8,6 +8,17 @@ export type RealtyProject = {
   url: string;
   img: string;
   kml_url?: string | null;
+  logo_url?: string | null;
+};
+
+export type UserPoint = {
+  id: number;
+  name: string;
+  description: string | null;
+  lat: number;
+  lng: number;
+  color: string;
+  created_at: string;
 };
 
 export type Competitor = {
