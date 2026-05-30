@@ -504,12 +504,17 @@ export default function TerritorialMap({
                 // el usuario ve siempre el nombre de cada distrito.
                 'text-allow-overlap': true,
                 'text-ignore-placement': true,
+                'text-optional': false,
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
+                'symbol-z-order': 'source',
               }}
               paint={{
                 'text-color': '#000000',
                 'text-halo-color': '#ffffff',
                 'text-halo-width': 1.8,
                 'text-halo-blur': 0.3,
+                'text-opacity': 1,
               }}
             />
           </Source>
