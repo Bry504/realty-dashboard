@@ -499,11 +499,11 @@ export default function TerritorialMap({
                 'text-padding': 0,
                 'text-max-width': 8,
                 'symbol-placement': 'point',
-                // Prioridad: el más chico gana cuando hay colisión. Así los
-                // distritos chicos urbanos (San Miguel, San Antonio, Bellavista,
-                // Lince, Magdalena, Miraflores…) no se pierden frente a vecinos
-                // grandes.
-                'symbol-sort-key': ['get', '_area'],
+                // Forzamos que TODAS las etiquetas se rendericen — sin colisión-
+                // culling. A zoom bajo puede haber superposición visual, pero
+                // el usuario ve siempre el nombre de cada distrito.
+                'text-allow-overlap': true,
+                'text-ignore-placement': true,
               }}
               paint={{
                 'text-color': '#000000',
