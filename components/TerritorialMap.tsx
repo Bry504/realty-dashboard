@@ -139,20 +139,33 @@ function buildTerritorialLabels(
   fc: FeatureCollection,
   level: TerritorialLevel,
 ): FeatureCollection {
-  const key =
+  const nameKey =
     level === 'departamento' ? 'NOMBDEP'
     : level === 'provincia' ? 'NOMBPROV'
     : level === 'distrito' ? 'NOMBDIST'
     : null;
-  if (!key) return { type: 'FeatureCollection', features: [] };
+  if (!nameKey) return { type: 'FeatureCollection', features: [] };
 
-  type Best = { area: number; coords: number[][] };
+  // Cada unidad administrativa es única dentro de su nivel superior.
+  // - distrito  ⇒ único por (NOMBDIST, NOMBPROV)
+  // - provincia ⇒ único por (NOMBPROV, NOMBDEP)
+  // - depto     ⇒ único por NOMBDEP
+  // Si dedupáramos solo por nombre perdemos los homónimos (Miraflores aparece 4 veces).
+  const scopeKey =
+    level === 'distrito' ? 'NOMBPROV'
+    : level === 'provincia' ? 'NOMBDEP'
+    : null;
+
+  type Best = { area: number; coords: number[][]; name: string };
   // El import "Map" arriba viene de react-map-gl y sombrea el global; usamos globalThis.Map.
   const best = new globalThis.Map<string, Best>();
 
   for (const f of fc.features) {
-    const name = (f.properties as Record<string, unknown> | null)?.[key] as string | undefined;
+    const props = f.properties as Record<string, unknown> | null;
+    const name = props?.[nameKey] as string | undefined;
     if (!name) continue;
+    const scope = scopeKey ? (props?.[scopeKey] as string | undefined) ?? '' : '';
+    const compositeKey = `${name}__${scope}`;
     // Algunos distritos del dataset GeoPerú vienen con geometry: null
     const geom = f.geometry as { coordinates?: unknown } | null;
     if (!geom || geom.coordinates == null) continue;
@@ -171,17 +184,17 @@ function buildTerritorialLabels(
     walk(geom.coordinates);
     if (coords.length === 0) continue;
     const area = (maxLng - minLng) * (maxLat - minLat);
-    const cur = best.get(name);
-    if (!cur || area > cur.area) best.set(name, { area, coords });
+    const cur = best.get(compositeKey);
+    if (!cur || area > cur.area) best.set(compositeKey, { area, coords, name });
   }
 
-  const features = Array.from(best.entries()).map(([name, pick]) => {
+  const features = Array.from(best.values()).map((pick) => {
     let sx = 0, sy = 0;
     for (const [lng, lat] of pick.coords) { sx += lng; sy += lat; }
     const n = pick.coords.length || 1;
     return {
       type: 'Feature' as const,
-      properties: { name },
+      properties: { name: pick.name },
       geometry: { type: 'Point' as const, coordinates: [sx / n, sy / n] },
     };
   });
