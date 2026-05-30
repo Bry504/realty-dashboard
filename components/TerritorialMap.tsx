@@ -80,7 +80,9 @@ function buildStyle(basemap: Basemap): StyleSpecification {
   const b = BASEMAPS[basemap];
   return {
     version: 8,
-    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+    // El servidor demotiles.maplibre.org devuelve 404 intermitente.
+    // OpenMapTiles aloja el mismo font stack ("Open Sans Regular") de forma estable.
+    glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
     sources: {
       basemap: {
         type: 'raster',
@@ -370,18 +372,33 @@ export default function TerritorialMap({
     }
   }, [focusId, realty, overlaysByProject]);
 
+  // El dataset GeoPerú trae algunas features con geometry: null.
+  // MapLibre crashea internamente al renderizarlas, así que las filtramos aquí
+  // antes de pasar el geo a fill/line. (También sirve como input limpio para
+  // el label builder.)
+  const safeGeo = useMemo<FeatureCollection | null>(() => {
+    if (!geo) return null;
+    return {
+      type: 'FeatureCollection',
+      features: geo.features.filter((f) => {
+        const g = f.geometry as { coordinates?: unknown } | null;
+        return !!g && g.coordinates != null;
+      }),
+    };
+  }, [geo]);
+
   // Labels deduplicados (uno por nombre único) para el nivel territorial activo
   const territorialLabels = useMemo<FeatureCollection | null>(
     () => {
-      if (!geo) return null;
+      if (!safeGeo) return null;
       try {
-        return buildTerritorialLabels(geo, level);
+        return buildTerritorialLabels(safeGeo, level);
       } catch (err) {
         console.error('buildTerritorialLabels failed', err);
         return { type: 'FeatureCollection', features: [] };
       }
     },
-    [geo, level],
+    [safeGeo, level],
   );
 
   // Style — recomputed when basemap changes
@@ -486,8 +503,8 @@ export default function TerritorialMap({
         <AttributionControl position="bottom-right" compact />
 
         {/* Territorial polygons (fill blanco + borde negro grueso) */}
-        {geo && (
-          <Source id="territorial" type="geojson" data={geo}>
+        {safeGeo && (
+          <Source id="territorial" type="geojson" data={safeGeo}>
             <Layer
               id="territorial-fill"
               type="fill"
