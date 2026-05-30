@@ -127,6 +127,61 @@ function ensureTrainIcon(map: maplibregl.Map): void {
   img.src = url;
 }
 
+/**
+ * A partir de un FeatureCollection de polígonos territoriales, devuelve un
+ * FeatureCollection de Puntos con UN label por nombre único. Para cada nombre,
+ * elige la feature con bounding-box más grande y coloca el label en su
+ * centroide (promedio de coordenadas). Esto evita ver "LIMA" 167 veces.
+ */
+function buildTerritorialLabels(
+  fc: FeatureCollection,
+  level: TerritorialLevel,
+): FeatureCollection {
+  const key =
+    level === 'departamento' ? 'NOMBDEP'
+    : level === 'provincia' ? 'NOMBPROV'
+    : level === 'distrito' ? 'NOMBDIST'
+    : null;
+  if (!key) return { type: 'FeatureCollection', features: [] };
+
+  type Best = { area: number; coords: number[][] };
+  // El import "Map" arriba viene de react-map-gl y sombrea el global; usamos globalThis.Map.
+  const best = new globalThis.Map<string, Best>();
+
+  for (const f of fc.features) {
+    const name = (f.properties as Record<string, unknown> | null)?.[key] as string | undefined;
+    if (!name) continue;
+    const coords: number[][] = [];
+    let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+    const walk = (c: unknown): void => {
+      if (Array.isArray(c) && typeof c[0] === 'number') {
+        const [lng, lat] = c as number[];
+        coords.push([lng, lat]);
+        if (lng < minLng) minLng = lng;
+        if (lng > maxLng) maxLng = lng;
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+      } else if (Array.isArray(c)) for (const x of c) walk(x);
+    };
+    walk((f.geometry as { coordinates: unknown }).coordinates);
+    const area = (maxLng - minLng) * (maxLat - minLat);
+    const cur = best.get(name);
+    if (!cur || area > cur.area) best.set(name, { area, coords });
+  }
+
+  const features = Array.from(best.entries()).map(([name, pick]) => {
+    let sx = 0, sy = 0;
+    for (const [lng, lat] of pick.coords) { sx += lng; sy += lat; }
+    const n = pick.coords.length || 1;
+    return {
+      type: 'Feature' as const,
+      properties: { name },
+      geometry: { type: 'Point' as const, coordinates: [sx / n, sy / n] },
+    };
+  });
+  return { type: 'FeatureCollection', features };
+}
+
 /** Abre Google Earth Web centrado en la cámara actual del mapa. */
 function openInGoogleEarth(lng: number, lat: number, zoom: number) {
   // Conversión aprox: distancia de cámara (range) en metros desde el zoom de Mercator
@@ -311,6 +366,12 @@ export default function TerritorialMap({
     }
   }, [focusId, realty, overlaysByProject]);
 
+  // Labels deduplicados (uno por nombre único) para el nivel territorial activo
+  const territorialLabels = useMemo<FeatureCollection | null>(
+    () => (geo ? buildTerritorialLabels(geo, level) : null),
+    [geo, level],
+  );
+
   // Style — recomputed when basemap changes
   const mapStyle = useMemo(() => buildStyle(basemap), [basemap]);
 
@@ -412,48 +473,48 @@ export default function TerritorialMap({
         <ScaleControl position="bottom-left" unit="metric" />
         <AttributionControl position="bottom-right" compact />
 
-        {/* Territorial borders + labels */}
+        {/* Territorial polygons (fill blanco + borde negro grueso) */}
         {geo && (
           <Source id="territorial" type="geojson" data={geo}>
             <Layer
               id="territorial-fill"
               type="fill"
-              paint={{ 'fill-color': '#e87722', 'fill-opacity': territorialFillOpacity }}
+              paint={{ 'fill-color': '#ffffff', 'fill-opacity': territorialFillOpacity }}
             />
             <Layer
               id="territorial-line"
               type="line"
               paint={{
-                'line-color': '#b8581a',
+                'line-color': '#000000',
                 'line-width':
-                  level === 'distrito' ? 1.4 : level === 'provincia' ? 1.9 : 2.6,
+                  level === 'distrito' ? 1.8 : level === 'provincia' ? 2.6 : 3.4,
                 'line-opacity': 0.95,
               }}
             />
+          </Source>
+        )}
+
+        {/* Labels — uno por nombre único, fuente separada para evitar duplicados */}
+        {territorialLabels && (
+          <Source id="territorial-labels" type="geojson" data={territorialLabels}>
             <Layer
               id="territorial-label"
               type="symbol"
               layout={{
-                'text-field': [
-                  'coalesce',
-                  ['get', 'NOMBDEP'],
-                  ['get', 'NOMBPROV'],
-                  ['get', 'NOMBDIST'],
-                  ['get', 'name'],
-                  '',
-                ],
+                'text-field': ['get', 'name'],
                 'text-font': ['Open Sans Regular'],
-                'text-size': level === 'distrito' ? 11 : level === 'provincia' ? 13 : 15,
+                'text-size': level === 'distrito' ? 11 : level === 'provincia' ? 13 : 16,
                 'text-letter-spacing': 0.04,
                 'text-transform': 'uppercase',
                 'text-allow-overlap': false,
+                'text-ignore-placement': false,
                 'symbol-placement': 'point',
               }}
               paint={{
-                'text-color': '#1d1410',
+                'text-color': '#000000',
                 'text-halo-color': '#ffffff',
                 'text-halo-width': 2,
-                'text-halo-blur': 0.4,
+                'text-halo-blur': 0.3,
               }}
             />
           </Source>
