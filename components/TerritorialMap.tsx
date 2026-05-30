@@ -151,6 +151,9 @@ function buildTerritorialLabels(
   for (const f of fc.features) {
     const name = (f.properties as Record<string, unknown> | null)?.[key] as string | undefined;
     if (!name) continue;
+    // Algunos distritos del dataset GeoPerú vienen con geometry: null
+    const geom = f.geometry as { coordinates?: unknown } | null;
+    if (!geom || geom.coordinates == null) continue;
     const coords: number[][] = [];
     let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
     const walk = (c: unknown): void => {
@@ -163,7 +166,8 @@ function buildTerritorialLabels(
         if (lat > maxLat) maxLat = lat;
       } else if (Array.isArray(c)) for (const x of c) walk(x);
     };
-    walk((f.geometry as { coordinates: unknown }).coordinates);
+    walk(geom.coordinates);
+    if (coords.length === 0) continue;
     const area = (maxLng - minLng) * (maxLat - minLat);
     const cur = best.get(name);
     if (!cur || area > cur.area) best.set(name, { area, coords });
@@ -368,7 +372,15 @@ export default function TerritorialMap({
 
   // Labels deduplicados (uno por nombre único) para el nivel territorial activo
   const territorialLabels = useMemo<FeatureCollection | null>(
-    () => (geo ? buildTerritorialLabels(geo, level) : null),
+    () => {
+      if (!geo) return null;
+      try {
+        return buildTerritorialLabels(geo, level);
+      } catch (err) {
+        console.error('buildTerritorialLabels failed', err);
+        return { type: 'FeatureCollection', features: [] };
+      }
+    },
     [geo, level],
   );
 
