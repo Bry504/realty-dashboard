@@ -167,7 +167,9 @@ export default function MapShell({
             <img
               src={brandLogoUrl}
               alt="Realty GI"
-              className="h-9 w-auto object-contain"
+              // Mismo alto vertical que el bloque de texto a la derecha
+              // ("Realty GI" 13px + "Mapa Territorial" 10px con line-height 1.45 ≈ 34px).
+              className="h-[38px] w-auto object-contain"
             />
           ) : (
             <div
