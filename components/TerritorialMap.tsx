@@ -314,17 +314,39 @@ export default function TerritorialMap({
   }, [focusId, realty, overlaysByProject]);
 
   // El dataset GeoPerú trae algunas features con geometry: null.
-  // MapLibre crashea internamente al renderizarlas, así que las filtramos aquí
-  // antes de pasar el geo a fill/line. (También sirve como input limpio para
-  // el label builder.)
+  // MapLibre crashea internamente al renderizarlas, así que las filtramos.
+  // De paso calculamos el área del bounding-box y la guardamos como _area:
+  // así el symbol-sort-key del layer de etiquetas le da prioridad a los
+  // distritos más chicos (los grandes son fáciles de identificar por contexto;
+  // los chicos son los que pierden colisiones y dejan de etiquetarse).
   const safeGeo = useMemo<FeatureCollection | null>(() => {
     if (!geo) return null;
     return {
       type: 'FeatureCollection',
-      features: geo.features.filter((f) => {
-        const g = f.geometry as { coordinates?: unknown } | null;
-        return !!g && g.coordinates != null;
-      }),
+      features: geo.features
+        .filter((f) => {
+          const g = f.geometry as { coordinates?: unknown } | null;
+          return !!g && g.coordinates != null;
+        })
+        .map((f) => {
+          // bbox rápido para usarlo como sort-key
+          let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+          const walk = (c: unknown): void => {
+            if (Array.isArray(c) && typeof c[0] === 'number') {
+              const [lng, lat] = c as number[];
+              if (lng < minLng) minLng = lng;
+              if (lng > maxLng) maxLng = lng;
+              if (lat < minLat) minLat = lat;
+              if (lat > maxLat) maxLat = lat;
+            } else if (Array.isArray(c)) for (const x of c) walk(x);
+          };
+          walk((f.geometry as { coordinates: unknown }).coordinates);
+          const area = (maxLng - minLng) * (maxLat - minLat) || 0;
+          return {
+            ...f,
+            properties: { ...(f.properties ?? {}), _area: area },
+          };
+        }),
     };
   }, [geo]);
 
@@ -469,14 +491,19 @@ export default function TerritorialMap({
                   'interpolate', ['linear'], ['zoom'],
                   6, 8,
                   10, 11,
-                  14, 14,
+                  14, 13,
                   18, 16,
                 ],
                 'text-letter-spacing': 0.04,
                 'text-transform': 'uppercase',
-                'text-padding': 1,
+                'text-padding': 0,
                 'text-max-width': 8,
                 'symbol-placement': 'point',
+                // Prioridad: el más chico gana cuando hay colisión. Así los
+                // distritos chicos urbanos (San Miguel, San Antonio, Bellavista,
+                // Lince, Magdalena, Miraflores…) no se pierden frente a vecinos
+                // grandes.
+                'symbol-sort-key': ['get', '_area'],
               }}
               paint={{
                 'text-color': '#000000',
