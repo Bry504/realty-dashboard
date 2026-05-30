@@ -129,78 +129,6 @@ function ensureTrainIcon(map: maplibregl.Map): void {
   img.src = url;
 }
 
-/**
- * A partir de un FeatureCollection de polígonos territoriales, devuelve un
- * FeatureCollection de Puntos con UN label por nombre único. Para cada nombre,
- * elige la feature con bounding-box más grande y coloca el label en su
- * centroide (promedio de coordenadas). Esto evita ver "LIMA" 167 veces.
- */
-function buildTerritorialLabels(
-  fc: FeatureCollection,
-  level: TerritorialLevel,
-): FeatureCollection {
-  const nameKey =
-    level === 'departamento' ? 'NOMBDEP'
-    : level === 'provincia' ? 'NOMBPROV'
-    : level === 'distrito' ? 'NOMBDIST'
-    : null;
-  if (!nameKey) return { type: 'FeatureCollection', features: [] };
-
-  // Cada unidad administrativa es única dentro de su nivel superior.
-  // - distrito  ⇒ único por (NOMBDIST, NOMBPROV)
-  // - provincia ⇒ único por (NOMBPROV, NOMBDEP)
-  // - depto     ⇒ único por NOMBDEP
-  // Si dedupáramos solo por nombre perdemos los homónimos (Miraflores aparece 4 veces).
-  const scopeKey =
-    level === 'distrito' ? 'NOMBPROV'
-    : level === 'provincia' ? 'NOMBDEP'
-    : null;
-
-  type Best = { area: number; coords: number[][]; name: string };
-  // El import "Map" arriba viene de react-map-gl y sombrea el global; usamos globalThis.Map.
-  const best = new globalThis.Map<string, Best>();
-
-  for (const f of fc.features) {
-    const props = f.properties as Record<string, unknown> | null;
-    const name = props?.[nameKey] as string | undefined;
-    if (!name) continue;
-    const scope = scopeKey ? (props?.[scopeKey] as string | undefined) ?? '' : '';
-    const compositeKey = `${name}__${scope}`;
-    // Algunos distritos del dataset GeoPerú vienen con geometry: null
-    const geom = f.geometry as { coordinates?: unknown } | null;
-    if (!geom || geom.coordinates == null) continue;
-    const coords: number[][] = [];
-    let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
-    const walk = (c: unknown): void => {
-      if (Array.isArray(c) && typeof c[0] === 'number') {
-        const [lng, lat] = c as number[];
-        coords.push([lng, lat]);
-        if (lng < minLng) minLng = lng;
-        if (lng > maxLng) maxLng = lng;
-        if (lat < minLat) minLat = lat;
-        if (lat > maxLat) maxLat = lat;
-      } else if (Array.isArray(c)) for (const x of c) walk(x);
-    };
-    walk(geom.coordinates);
-    if (coords.length === 0) continue;
-    const area = (maxLng - minLng) * (maxLat - minLat);
-    const cur = best.get(compositeKey);
-    if (!cur || area > cur.area) best.set(compositeKey, { area, coords, name });
-  }
-
-  const features = Array.from(best.values()).map((pick) => {
-    let sx = 0, sy = 0;
-    for (const [lng, lat] of pick.coords) { sx += lng; sy += lat; }
-    const n = pick.coords.length || 1;
-    return {
-      type: 'Feature' as const,
-      properties: { name: pick.name },
-      geometry: { type: 'Point' as const, coordinates: [sx / n, sy / n] },
-    };
-  });
-  return { type: 'FeatureCollection', features };
-}
-
 /** Abre Google Earth Web centrado en la cámara actual del mapa. */
 function openInGoogleEarth(lng: number, lat: number, zoom: number) {
   // Conversión aprox: distancia de cámara (range) en metros desde el zoom de Mercator
@@ -400,20 +328,6 @@ export default function TerritorialMap({
     };
   }, [geo]);
 
-  // Labels deduplicados (uno por nombre único) para el nivel territorial activo
-  const territorialLabels = useMemo<FeatureCollection | null>(
-    () => {
-      if (!safeGeo) return null;
-      try {
-        return buildTerritorialLabels(safeGeo, level);
-      } catch (err) {
-        console.error('buildTerritorialLabels failed', err);
-        return { type: 'FeatureCollection', features: [] };
-      }
-    },
-    [safeGeo, level],
-  );
-
   // Style — recomputed when basemap changes
   const mapStyle = useMemo(() => buildStyle(basemap), [basemap]);
 
@@ -515,7 +429,11 @@ export default function TerritorialMap({
         <ScaleControl position="bottom-left" unit="metric" />
         <AttributionControl position="bottom-right" compact />
 
-        {/* Territorial polygons (fill blanco + borde negro grueso) */}
+        {/* Polígonos territoriales + labels.
+            Le pasamos los polígonos directamente al layer de símbolo: MapLibre
+            calcula el "pole of inaccessibility" del polígono y coloca el label
+            ahí — garantiza que esté dentro, mejor que cualquier centroide
+            manual. Una sola fuente para fill / line / label. */}
         {safeGeo && (
           <Source id="territorial" type="geojson" data={safeGeo}>
             <Layer
@@ -533,29 +451,37 @@ export default function TerritorialMap({
                 'line-opacity': 0.95,
               }}
             />
-          </Source>
-        )}
-
-        {/* Labels — uno por nombre único, fuente separada para evitar duplicados */}
-        {territorialLabels && (
-          <Source id="territorial-labels" type="geojson" data={territorialLabels}>
             <Layer
               id="territorial-label"
               type="symbol"
               layout={{
-                'text-field': ['get', 'name'],
+                'text-field': [
+                  'get',
+                  level === 'departamento'
+                    ? 'NOMBDEP'
+                    : level === 'provincia'
+                    ? 'NOMBPROV'
+                    : 'NOMBDIST',
+                ],
                 'text-font': ['Open Sans Regular'],
-                'text-size': level === 'distrito' ? 11 : level === 'provincia' ? 13 : 16,
+                // Escala con el zoom para reducir colisiones a niveles bajos
+                'text-size': [
+                  'interpolate', ['linear'], ['zoom'],
+                  6, 8,
+                  10, 11,
+                  14, 14,
+                  18, 16,
+                ],
                 'text-letter-spacing': 0.04,
                 'text-transform': 'uppercase',
-                'text-allow-overlap': false,
-                'text-ignore-placement': false,
+                'text-padding': 1,
+                'text-max-width': 8,
                 'symbol-placement': 'point',
               }}
               paint={{
                 'text-color': '#000000',
                 'text-halo-color': '#ffffff',
-                'text-halo-width': 2,
+                'text-halo-width': 1.8,
                 'text-halo-blur': 0.3,
               }}
             />
