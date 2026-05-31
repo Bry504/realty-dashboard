@@ -153,41 +153,45 @@ export default function MapShell({
     <div className="h-screen flex flex-col">
       {/* ============ Topbar ============ */}
       <header className="h-14 flex items-center gap-4 px-4 bg-paper border-b border-line shrink-0 z-[600]">
-        <button
-          onClick={() => setSidebarOpen((v) => !v)}
-          className="w-8 h-8 rounded-md border border-line-2 text-ink-2 hover:bg-paper-2 grid place-items-center shrink-0"
-          title={sidebarOpen ? 'Ocultar panel' : 'Mostrar panel'}
-        >
-          <HamburgerIcon />
-        </button>
+        {/* Bloque izquierdo fijo a 320px (= ancho del sidebar) para que los
+            stats arranquen justo donde termina el sidebar. */}
+        <div className="flex items-center gap-3 w-[296px] shrink-0">
+          <button
+            onClick={() => setSidebarOpen((v) => !v)}
+            className="w-8 h-8 rounded-md border border-line-2 text-ink-2 hover:bg-paper-2 grid place-items-center shrink-0"
+            title={sidebarOpen ? 'Ocultar panel' : 'Mostrar panel'}
+          >
+            <HamburgerIcon />
+          </button>
 
-        <div className="flex items-center gap-2.5">
-          {brandLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={brandLogoUrl}
-              alt="Realty GI"
-              // Mismo alto vertical que el bloque de texto a la derecha
-              // ("Realty GI" 13px + "Mapa Territorial" 10px con line-height 1.45 ≈ 34px).
-              className="h-[38px] w-auto object-contain"
-            />
-          ) : (
-            <div
-              className="w-8 h-8 rounded-lg grid place-items-center text-white font-extrabold text-sm shadow-[0_2px_6px_rgba(184,88,26,0.35)]"
-              style={{ background: 'linear-gradient(155deg, #e87722 0%, #b8581a 100%)' }}
-            >
-              R
-            </div>
-          )}
-          <div className="leading-tight">
-            <div className="font-extrabold text-[13px] tracking-tight">Realty GI</div>
-            <div className="text-[10px] uppercase tracking-wider text-ink-3 font-bold">
-              Mapa Territorial
+          <div className="flex items-center gap-2.5 min-w-0">
+            {brandLogoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={brandLogoUrl}
+                alt="Realty Grupo Inmobiliario"
+                className="h-[38px] w-auto object-contain shrink-0"
+              />
+            ) : (
+              <div
+                className="w-8 h-8 rounded-lg grid place-items-center text-white font-extrabold text-sm shadow-[0_2px_6px_rgba(184,88,26,0.35)] shrink-0"
+                style={{ background: 'linear-gradient(155deg, #e87722 0%, #b8581a 100%)' }}
+              >
+                R
+              </div>
+            )}
+            <div className="leading-tight min-w-0">
+              <div className="font-extrabold text-[12px] tracking-tight truncate">
+                Realty Grupo Inmobiliario
+              </div>
+              <div className="text-[10px] uppercase tracking-wider text-ink-3 font-bold truncate">
+                Análisis de la Oferta
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="flex gap-5 ml-4">
+        <div className="flex gap-5">
           <Stat v={`${visibleRealtyCount}/${realty.length}`} l="Realty" />
           <Stat v={`${visibleCompCount}/${competitors.length}`} l="Competencia" />
           <Stat v={inmobiliarias.length} l="Inmobiliarias" />
@@ -210,7 +214,9 @@ export default function MapShell({
         <button
           onClick={() => { setMeasureMode((v) => !v); setAddPointMode(false); }}
           className={`px-2.5 py-1.5 text-[11px] font-semibold rounded-md border ${
-            measureMode ? 'bg-ink text-white border-ink' : 'border-line-2 text-ink-2 hover:bg-paper-2'
+            measureMode
+              ? 'bg-realty text-white border-realty'
+              : 'border-line-2 text-ink-2 hover:bg-paper-2'
           }`}
           title="Medir distancia"
         >
@@ -238,7 +244,7 @@ export default function MapShell({
               key={b}
               onClick={() => setBasemap(b)}
               className={`px-2.5 py-1.5 text-[11px] font-medium border-r border-line-2 last:border-r-0 ${
-                basemap === b ? 'bg-ink text-white' : 'text-ink-2 hover:bg-paper-2'
+                basemap === b ? 'bg-realty text-white' : 'text-ink-2 hover:bg-paper-2'
               }`}
             >
               {b === 'claro' ? 'Claro' : b === 'osm' ? 'OSM' : b === 'satelite' ? 'Satélite' : 'Relieve'}
@@ -277,11 +283,8 @@ export default function MapShell({
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-extrabold text-[13px] tracking-tight text-realty-dark">
-                  Realty Grupo Inmobiliario
-                </div>
-                <div className="text-[9px] uppercase tracking-[0.08em] font-bold text-ink-3">
-                  Nuestros desarrollos
+                <div className="font-extrabold text-[14px] tracking-tight text-realty-dark uppercase">
+                  Nuestros Desarrollos
                 </div>
               </div>
               <button
